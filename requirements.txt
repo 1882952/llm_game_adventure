@@ -1,0 +1,5 @@
+# 依赖包列表 
+langchain
+langchain-community
+dataclasses
+typing-extensions 
