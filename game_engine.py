@@ -83,10 +83,12 @@ class GameEngine:
     def generate_ai_story(self, player_input, state_manager):
         """使用AI生成故事内容"""
         try:
+            # 获取历史剧情摘要
+            history_text = "\n".join([node.description for node in state_manager.story.history])
+            summary = self.scene_prompt.summarize_history(history_text) if history_text else ""
             # 获取当前故事上下文
             story_context = state_manager.get_story_context()
-            theme = state_manager.get_story_flag("story_theme", "fantasy_adventure")
-            
+            theme = state_manager.get_story_flag("story_theme", "explore")
             # 生成事件推进
             previous_events = [node.description for node in state_manager.story.history[-3:]]
             event_result = self.scene_prompt.generate_event_progression(
@@ -94,32 +96,30 @@ class GameEngine:
                 player_input, 
                 previous_events
             )
-            
             # 处理状态变化
             self.process_status_changes(event_result.get('status_changes', ''), state_manager)
-            
-            # 生成新场景
-            updated_context = story_context + f"\n最新发生：{event_result['event_result']}"
+            # 生成新场景，拼接摘要+最新事件+玩家操作
+            updated_context = f"剧情摘要：{summary}\n" if summary else ""
+            updated_context += story_context + f"\n最新发生：{event_result['event_result']}"
+            # 动态选择剧情类型（可根据上下文/分支扩展）
+            scene_type = theme  # 这里可根据实际分支动态调整
             scene_result = self.scene_prompt.generate_scene(
                 updated_context,
                 player_input,
-                theme
+                scene_type
             )
-            
             # 随机添加一些游戏性元素
             self.add_random_game_elements(state_manager)
-            
             # 检查是否应该结束游戏
             should_end = self.check_ending_conditions(state_manager)
-            
             return {
                 'scene_id': f'ai_scene_{self.story_step}',
                 'description': scene_result['description'],
-                'options': scene_result['options'] if not should_end else [],
+                'options': scene_result.get('options', []),
+                'option_events': scene_result.get('option_events', []),
                 'is_end': should_end,
                 'ending_type': 'ai_generated' if should_end else None
             }
-            
         except Exception as e:
             print(f"AI生成故事失败: {e}")
             # 回退到预设逻辑

@@ -3,10 +3,93 @@ from langchain_community.llms import Ollama
 import json
 import re
 from typing import Dict, List, Any, Optional
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
+from langchain_core.runnables import RunnableSequence
 
 class ScenePrompt:
     def __init__(self, model_name="unsafe-llama3-14b:latest", base_url="http://localhost:11434"):
         self.llm = Ollama(model=model_name, base_url=base_url)
+        # 剧情摘要链
+        self.summary_prompt = PromptTemplate(
+            input_variables=["history"],
+            template="""
+你是一名文字冒险游戏的剧情总结助手。请将以下剧情历史内容进行高度精炼的总结，保留主线脉络、关键事件和重要角色，控制在150字以内：
+
+剧情历史：
+{history}
+
+剧情摘要：
+"""
+        )
+        self.summary_chain = self.summary_prompt | self.llm
+        # 各类型Prompt
+        self.prompt_dict = {
+            "explore": PromptTemplate(
+                input_variables=["context", "player_action"],
+                template="""
+你是一名文字冒险游戏的剧情生成AI。请根据剧情摘要和玩家操作，生成一个探索场景。
+
+剧情摘要：{context}
+玩家操作：{player_action}
+
+请以如下JSON格式输出：
+{{
+  "description": "场景描述...",
+  "options": [
+    {{"text": "选项1内容", "event": "add_item:神秘石头"}},
+    {{"text": "选项2内容", "event": "heal:10"}},
+    {{"text": "选项3内容", "event": "none"}}
+  ]
+}}
+要求：选项内容要与场景紧密相关，事件字段描述玩家选择后会发生的效果。
+"""
+            ),
+            "battle": PromptTemplate(
+                input_variables=["context", "player_action"],
+                template="""
+你是一名文字冒险游戏的战斗场景生成AI。请根据剧情摘要和玩家操作，生成一个战斗场景。
+
+剧情摘要：{context}
+玩家操作：{player_action}
+
+请以如下JSON格式输出：
+{{
+  "description": "战斗场景描述...",
+  "options": [
+    {{"text": "攻击敌人", "event": "damage:20"}},
+    {{"text": "使用药水", "event": "heal:15"}},
+    {{"text": "防御", "event": "none"}}
+  ]
+}}
+要求：选项内容要与战斗场景紧密相关，事件字段描述玩家选择后会发生的效果。
+"""
+            ),
+            "dialogue": PromptTemplate(
+                input_variables=["context", "player_action"],
+                template="""
+你是一名文字冒险游戏的对话场景生成AI。请根据剧情摘要和玩家操作，生成一个对话场景。
+
+剧情摘要：{context}
+玩家操作：{player_action}
+
+请以如下JSON格式输出：
+{{
+  "description": "对话场景描述...",
+  "options": [
+    {{"text": "友好交谈", "event": "add_item:友谊徽章"}},
+    {{"text": "索要信息", "event": "add_experience:10"}},
+    {{"text": "威胁对方", "event": "damage:10"}}
+  ]
+}}
+要求：选项内容要与对话场景紧密相关，事件字段描述玩家选择后会发生的效果。
+"""
+            )
+        }
+        # 直接用prompt | llm组合
+        self.scene_runnables = {
+            key: self.prompt_dict[key] | self.llm for key in self.prompt_dict
+        }
     
     def build_scene_prompt(self, story_context: str, player_action: str = None, scene_type: str = "adventure") -> str:
         """构建场景描述提示词"""
@@ -128,11 +211,18 @@ class ScenePrompt:
 """
         return prompt
     
-    def generate_scene(self, story_context: str, player_action: str = None, scene_type: str = "adventure") -> Dict[str, Any]:
-        """生成场景描述和选项"""
-        prompt = self.build_scene_prompt(story_context, player_action, scene_type)
-        response = self.llm.invoke(prompt)
-        return self.parse_scene_response(response)
+    def _route_scene_type(self, scene_type: str) -> str:
+        # 简单路由逻辑，可扩展
+        if scene_type in self.scene_runnables:
+            return scene_type
+        return "explore"
+    
+    def generate_scene(self, story_context: str, player_action: str = None, scene_type: str = "explore") -> dict:
+        """根据剧情类型动态选择Prompt，生成结构化场景描述和选项"""
+        route = self._route_scene_type(scene_type)
+        chain_input = {"context": story_context, "player_action": player_action or ""}
+        response = self.scene_runnables[route].invoke(chain_input)
+        return self.parse_structured_scene_response(response)
     
     def generate_character_dialogue(self, character_info: Dict[str, str], dialogue_context: str, player_speech: str = None) -> str:
         """生成角色对话"""
@@ -151,6 +241,35 @@ class ScenePrompt:
         prompt = self.build_event_progression_prompt(story_context, player_choice, previous_events)
         response = self.llm.invoke(prompt)
         return self.parse_event_response(response)
+    
+    def parse_structured_scene_response(self, response: str) -> dict:
+        """解析结构化JSON响应，增强健壮性"""
+        import re
+        import json
+        try:
+            # 去除markdown代码块包裹
+            response = response.strip()
+            if response.startswith("```"):
+                response = re.sub(r"^```[a-zA-Z]*", "", response)
+                response = response.strip("`").strip()
+            # 用正则提取第一个大括号包裹的内容
+            match = re.search(r'\{[\s\S]*\}', response)
+            if match:
+                json_str = match.group(0)
+                data = json.loads(json_str)
+                options = data.get("options", [])
+                return {
+                    'description': data.get("description", ""),
+                    'options': [opt.get("text", "") for opt in options],
+                    'option_events': [opt.get("event", "none") for opt in options],
+                    'raw_response': response
+                }
+            else:
+                raise ValueError("未找到合法JSON结构")
+        except Exception as e:
+            print(f"结构化解析失败，降级为普通解析: {e}")
+            # fallback到原有解析
+            return self.parse_scene_response(response)
     
     def parse_scene_response(self, response: str) -> Dict[str, Any]:
         """解析场景生成的响应"""
@@ -212,6 +331,15 @@ class ScenePrompt:
                 'raw_response': response,
                 'error': str(e)
             }
+
+    def summarize_history(self, history: str) -> str:
+        """对历史剧情进行摘要，返回精炼主线"""
+        try:
+            result = self.summary_chain.invoke({"history": history})
+            return result.strip()
+        except Exception as e:
+            print(f"剧情摘要失败: {e}")
+            return history[:150] + ("..." if len(history) > 150 else "")
 
 # 测试和验证功能
 def test_scene_prompt():

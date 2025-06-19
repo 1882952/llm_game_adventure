@@ -111,8 +111,10 @@ def game_loop(ui, engine, state_manager):
         
         # 显示选项
         options = current_state.get('options', [])
+        option_events = current_state.get('option_events', [])
         special_options = ["保存游戏", "查看角色属性", "返回主菜单"]
         
+        # 展示选项并获取输入
         if options:
             ui.display_options(options + special_options)
             player_input = ui.get_player_input(options + special_options)
@@ -128,7 +130,6 @@ def game_loop(ui, engine, state_manager):
             if save_name:
                 state_manager.save_game(save_name)
             continue
-        
         elif player_input == "查看角色属性":
             player = state_manager.player
             print("\n=== 当前角色属性 ===")
@@ -149,7 +150,6 @@ def game_loop(ui, engine, state_manager):
                     print(f"  {k}: {v}")
             input("\n按回车键继续...")
             continue
-        
         elif player_input == "返回主菜单":
             save_choice = input("是否保存当前进度？(y/n): ").strip().lower()
             if save_choice in ['y', 'yes', '是']:
@@ -159,8 +159,46 @@ def game_loop(ui, engine, state_manager):
             break
         
         # 处理正常游戏输入
-        next_state = engine.next_step(player_input, state_manager)
+        # 判断是否为结构化选项
+        chosen_index = None
+        if options and player_input in options:
+            chosen_index = options.index(player_input)
+        elif options and player_input.isdigit():
+            idx = int(player_input) - 1
+            if 0 <= idx < len(options):
+                chosen_index = idx
         
+        # 触发AI结构化事件
+        if chosen_index is not None and option_events and chosen_index < len(option_events):
+            event_str = option_events[chosen_index]
+            player = state_manager.player
+            if event_str and event_str != "none":
+                try:
+                    if event_str.startswith("heal:"):
+                        amount = int(event_str.split(":")[1])
+                        player.heal(amount)
+                        print(f"[事件] 你恢复了 {amount} 点生命值！")
+                    elif event_str.startswith("damage:"):
+                        amount = int(event_str.split(":")[1])
+                        player.take_damage(amount)
+                        print(f"[事件] 你受到了 {amount} 点伤害！")
+                    elif event_str.startswith("add_item:"):
+                        item = event_str.split(":", 1)[1]
+                        player.add_item(item)
+                        print(f"[事件] 你获得了物品：{item}")
+                    elif event_str.startswith("remove_item:"):
+                        item = event_str.split(":", 1)[1]
+                        if player.remove_item(item):
+                            print(f"[事件] 你失去了物品：{item}")
+                    elif event_str.startswith("add_experience:"):
+                        exp = int(event_str.split(":")[1])
+                        player.add_experience(exp)
+                        print(f"[事件] 你获得了 {exp} 点经验！")
+                    # 可扩展更多事件类型
+                except Exception as e:
+                    print(f"[事件处理异常] {e}")
+        
+        next_state = engine.next_step(player_input, state_manager)
         # 更新游戏状态
         if next_state:
             state_manager.update_story(
@@ -169,11 +207,9 @@ def game_loop(ui, engine, state_manager):
                 next_state.get('options', []),
                 player_input
             )
-            
             # 如果游戏结束，标记结束
             if next_state.get('is_end', False):
                 state_manager.end_game(next_state.get('ending_type', 'normal'))
-            # 检查生命值，若为0则自动结束
             if not state_manager.player.is_alive():
                 print("\n你的生命值已降为0，游戏结束！")
                 state_manager.end_game("dead")
