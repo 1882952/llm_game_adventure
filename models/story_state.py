@@ -9,6 +9,7 @@ class StoryNode:
     scene_id: str
     description: str
     options: List[str]
+    option_events: List[str] = field(default_factory=list)
     player_choice: Optional[str] = None
     timestamp: datetime = field(default_factory=datetime.now)
     
@@ -18,6 +19,7 @@ class StoryNode:
             'scene_id': self.scene_id,
             'description': self.description,
             'options': self.options,
+            'option_events': self.option_events,
             'player_choice': self.player_choice,
             'timestamp': self.timestamp.isoformat()
         }
@@ -29,6 +31,7 @@ class StoryNode:
             scene_id=data['scene_id'],
             description=data['description'],
             options=data['options'],
+            option_events=data.get('option_events', []),
             player_choice=data.get('player_choice'),
             timestamp=datetime.fromisoformat(data['timestamp'])
         )
@@ -39,27 +42,27 @@ class StoryState:
     current_scene_id: str = "scene_0"
     current_description: str = ""
     current_options: List[str] = field(default_factory=list)
+    current_option_events: List[str] = field(default_factory=list)
     history: List[StoryNode] = field(default_factory=list)
     story_flags: Dict[str, Any] = field(default_factory=dict)
     branch_count: Dict[str, int] = field(default_factory=dict)
     is_ended: bool = False
     ending_type: Optional[str] = None
     
-    def add_scene(self, scene_id: str, description: str, options: List[str]) -> None:
+    def add_scene(self, scene_id: str, description: str, options: List[str], option_events: List[str] = None) -> None:
         """添加新场景到历史记录"""
-        # 保存当前场景到历史
         if self.current_scene_id:
             node = StoryNode(
                 scene_id=self.current_scene_id,
                 description=self.current_description,
-                options=self.current_options
+                options=self.current_options,
+                option_events=self.current_option_events
             )
             self.history.append(node)
-        
-        # 更新当前场景
         self.current_scene_id = scene_id
         self.current_description = description
         self.current_options = options
+        self.current_option_events = option_events if option_events is not None else []
     
     def record_choice(self, choice: str) -> None:
         """记录玩家选择"""
@@ -133,6 +136,7 @@ class StoryState:
             'current_scene_id': self.current_scene_id,
             'current_description': self.current_description,
             'current_options': self.current_options,
+            'current_option_events': self.current_option_events,
             'history': [node.to_dict() for node in self.history],
             'story_flags': self.story_flags,
             'branch_count': self.branch_count,
@@ -149,6 +153,7 @@ class StoryState:
             current_scene_id=data.get('current_scene_id', 'scene_0'),
             current_description=data.get('current_description', ''),
             current_options=data.get('current_options', []),
+            current_option_events=data.get('current_option_events', []),
             history=history,
             story_flags=data.get('story_flags', {}),
             branch_count=data.get('branch_count', {}),

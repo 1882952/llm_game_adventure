@@ -40,14 +40,11 @@ class GameStateManager:
             'version': '1.0'
         }
     
-    def update_story(self, scene_id: str, description: str, options: list, player_choice: str = None) -> None:
+    def update_story(self, scene_id: str, description: str, options: list, player_choice: str = None, option_events: list = None) -> None:
         """更新剧情状态"""
-        # 记录玩家选择
         if player_choice:
             self.story.record_choice(player_choice)
-        
-        # 添加新场景
-        self.story.add_scene(scene_id, description, options)
+        self.story.add_scene(scene_id, description, options, option_events)
         self.update_metadata()
     
     def set_story_flag(self, flag_name: str, value: Any) -> None:
@@ -85,6 +82,7 @@ class GameStateManager:
         return {
             'description': self.story.current_description,
             'options': self.story.current_options,
+            'option_events': self.story.current_option_events,
             'is_end': self.story.is_ended,
             'player_status': {
                 'name': self.player.name,
