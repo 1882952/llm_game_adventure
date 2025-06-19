@@ -1,6 +1,7 @@
 # 场景Prompt模板 
-from langchain_community.llms import Ollama
+import os
 import json
+from langchain_community.llms import Ollama
 import re
 from typing import Dict, List, Any, Optional
 from langchain.chains import LLMChain
@@ -8,8 +9,16 @@ from langchain.prompts import PromptTemplate
 from langchain_core.runnables import RunnableSequence
 
 class ScenePrompt:
-    def __init__(self, model_name="unsafe-llama3-14b:latest", base_url="http://localhost:11434"):
-        self.llm = Ollama(model=model_name, base_url=base_url)
+    def __init__(self, config_path="config.json"):
+        if os.path.exists(config_path):
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+        else:
+            config = {
+                "model_name": "llama3",
+                "base_url": "http://localhost:11434"
+            }
+        self.llm = Ollama(model=config["model_name"], base_url=config["base_url"])
         # 剧情摘要链
         self.summary_prompt = PromptTemplate(
             input_variables=["history"],

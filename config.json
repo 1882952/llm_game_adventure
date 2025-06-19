@@ -1,0 +1,6 @@
+{
+  "model_type": "ollama",
+  "model_name": "unsafe-llama3-14b:latest",
+  "base_url": "http://localhost:11434",
+  "api_key": ""
+} 
