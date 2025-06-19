@@ -7,7 +7,7 @@ class GameEngine:
         self.scene_prompt = ScenePrompt()
         self.story_step = 0
         self.use_ai_generation = True  # 是否使用AI生成内容
-        self.game_theme = "fantasy_adventure"  # 游戏主题
+        self.game_theme = "sci_fi"  # 游戏主题
         
         # 初始故事设定
         self.initial_story_settings = {
@@ -127,55 +127,65 @@ class GameEngine:
     
     def generate_preset_story(self, player_input, state_manager):
         """生成预设的故事内容（备用方案）"""
-        # 预设的故事节点（原有逻辑）
+        player = state_manager.player
         if self.story_step == 1:
             if "观察" in player_input or "环顾" in player_input:
+                # 事件效果：获得物品
+                player.add_item("古老钥匙")
                 return {
                     'scene_id': f'scene_{self.story_step}',
-                    'description': '你仔细观察房间，发现这里有一张古老的书桌、一扇紧闭的门和一扇窗。书桌上放着一本厚厚的日记。',
+                    'description': '你仔细观察房间，发现这里有一张古老的书桌、一扇紧闭的门和一扇窗。书桌上放着一本厚厚的日记。你获得了一把古老钥匙。',
                     'options': ['查看日记', '尝试开门', '走向窗户'],
                     'is_end': False
                 }
             elif "回忆" in player_input:
+                # 事件效果：恢复生命值
+                player.heal(10)
                 return {
                     'scene_id': f'scene_{self.story_step}',
-                    'description': '你努力回想，模糊记得自己在寻找一个传说中的魔法宝物，但之后的记忆一片空白。头部隐隐作痛。',
+                    'description': '你努力回想，模糊记得自己在寻找一个传说中的魔法宝物，但之后的记忆一片空白。头部隐隐作痛。你静下心来，感觉精神稍有恢复（生命+10）。',
                     'options': ['继续回忆', '放弃回忆，探索房间', '检查身体状况'],
                     'is_end': False
                 }
             else:  # 寻找出口
+                # 事件效果：受到伤害
+                player.take_damage(15)
                 return {
                     'scene_id': f'scene_{self.story_step}',
-                    'description': '你寻找出口，但发现房门被一道魔法屏障封锁。屏障散发着蓝色的光芒，似乎需要特殊的方法才能破解。',
+                    'description': '你寻找出口，但发现房门被一道魔法屏障封锁。屏障散发着蓝色的光芒，似乎需要特殊的方法才能破解。你试图强行突破，结果受到魔法反噬（生命-15）。',
                     'options': ['尝试触摸屏障', '寻找破解方法', '探索其他出路'],
                     'is_end': False
                 }
         
         elif self.story_step == 2:
-            # 第二步的故事分支
             if "日记" in player_input:
-                state_manager.add_player_item("神秘日记")
-                state_manager.player_gain_experience(15)
+                player.add_item("神秘日记")
+                player.add_experience(15)
                 state_manager.set_story_flag("read_diary", True)
-                
                 return {
                     'scene_id': f'scene_{self.story_step}',
-                    'description': '日记记录着一位法师的研究笔记。最后几页提到了"星光之石"的传说，以及打开封印的咒语。你获得了重要线索！',
+                    'description': '日记记录着一位法师的研究笔记。最后几页提到了"星光之石"的传说，以及打开封印的咒语。你获得了重要线索和神秘日记（经验+15，获得物品）。',
                     'options': ['尝试念出咒语', '继续探索房间', '保存日记，寻找其他线索'],
                     'is_end': False
                 }
             else:
+                # 事件效果：失去物品/受伤
+                if player.has_item("古老钥匙"):
+                    player.remove_item("古老钥匙")
+                    lost_item = "你不小心遗失了古老钥匙。"
+                else:
+                    lost_item = "你感到一阵眩晕，似乎受到了房间魔法的影响（生命-10）。"
+                    player.take_damage(10)
                 return {
                     'scene_id': f'scene_{self.story_step}',
-                    'description': '你的行动产生了意想不到的效果。房间中的魔法能量开始波动，一些隐藏的机关被激活了。',
+                    'description': f'你的行动产生了意想不到的效果。房间中的魔法能量开始波动，一些隐藏的机关被激活了。{lost_item}',
                     'options': ['观察魔法变化', '迅速寻找掩护', '尝试控制魔法能量'],
                     'is_end': False
                 }
         
         elif self.story_step >= 3:
-            # 根据玩家收集的物品和标记决定结局
             if state_manager.get_story_flag("read_diary", False):
-                state_manager.player_gain_experience(50)
+                player.add_experience(50)
                 return {
                     'scene_id': 'ending_good',
                     'description': '凭借日记中的知识，你成功破解了房间的封印。一道光芒闪过，你发现自己站在了一座宏伟的魔法图书馆中。真正的冒险现在才开始...',
@@ -184,10 +194,11 @@ class GameEngine:
                     'ending_type': 'good'
                 }
             else:
-                state_manager.player_gain_experience(20)
+                player.add_experience(20)
+                player.take_damage(20)
                 return {
                     'scene_id': 'ending_neutral',
-                    'description': '经过一番努力，你找到了离开房间的方法，但你感觉错过了什么重要的东西。也许还有其他的秘密等待着被发现...',
+                    'description': '经过一番努力，你找到了离开房间的方法，但你感觉错过了什么重要的东西。也许还有其他的秘密等待着被发现...（生命-20）',
                     'options': [],
                     'is_end': True,
                     'ending_type': 'neutral'
@@ -203,40 +214,30 @@ class GameEngine:
     
     def process_status_changes(self, status_changes, state_manager):
         """处理AI生成的状态变化"""
+        player = state_manager.player
         if not status_changes:
             return
-        
         try:
-            # 解析状态变化文本，寻找关键词
             text = status_changes.lower()
-            
-            # 检查物品获得
             if "获得" in text or "发现" in text:
                 items = ["古老钥匙", "魔法水晶", "神秘卷轴", "治疗药水", "银币"]
                 item = random.choice(items)
-                state_manager.add_player_item(item)
+                player.add_item(item)
                 print(f"[系统] 你获得了：{item}")
-            
-            # 检查经验获得
             if "经验" in text or "学习" in text or "理解" in text:
                 exp = random.randint(10, 30)
-                state_manager.player_gain_experience(exp)
+                player.add_experience(exp)
                 print(f"[系统] 你获得了 {exp} 点经验")
-            
-            # 检查生命值变化
             if "受伤" in text or "伤害" in text:
                 damage = random.randint(5, 15)
-                state_manager.player.take_damage(damage)
+                player.take_damage(damage)
                 print(f"[系统] 你受到了 {damage} 点伤害")
             elif "治疗" in text or "恢复" in text:
                 healing = random.randint(10, 25)
-                state_manager.player.heal(healing)
+                player.heal(healing)
                 print(f"[系统] 你恢复了 {healing} 点生命值")
-            
-            # 设置故事标记
             if "重要" in text or "关键" in text:
                 state_manager.set_story_flag(f"important_event_{self.story_step}", True)
-                
         except Exception as e:
             print(f"处理状态变化时出错: {e}")
     

@@ -111,7 +111,7 @@ def game_loop(ui, engine, state_manager):
         
         # 显示选项
         options = current_state.get('options', [])
-        special_options = ["保存游戏", "返回主菜单"]
+        special_options = ["保存游戏", "查看角色属性", "返回主菜单"]
         
         if options:
             ui.display_options(options + special_options)
@@ -127,6 +127,27 @@ def game_loop(ui, engine, state_manager):
             save_name = input("请输入存档名称: ").strip()
             if save_name:
                 state_manager.save_game(save_name)
+            continue
+        
+        elif player_input == "查看角色属性":
+            player = state_manager.player
+            print("\n=== 当前角色属性 ===")
+            print(f"姓名: {player.name}")
+            print(f"等级: {player.level}")
+            print(f"经验: {player.experience}")
+            print(f"生命值: {player.health}/{player.max_health}")
+            print(f"背包: {', '.join(player.inventory) if player.inventory else '无'}")
+            if player.skills:
+                print("技能:")
+                for skill, lv in player.skills.items():
+                    print(f"  {skill}: {lv}")
+            else:
+                print("技能: 无")
+            if player.attributes:
+                print("其他属性:")
+                for k, v in player.attributes.items():
+                    print(f"  {k}: {v}")
+            input("\n按回车键继续...")
             continue
         
         elif player_input == "返回主菜单":
@@ -152,6 +173,11 @@ def game_loop(ui, engine, state_manager):
             # 如果游戏结束，标记结束
             if next_state.get('is_end', False):
                 state_manager.end_game(next_state.get('ending_type', 'normal'))
+            # 检查生命值，若为0则自动结束
+            if not state_manager.player.is_alive():
+                print("\n你的生命值已降为0，游戏结束！")
+                state_manager.end_game("dead")
+                break
 
 def main():
     print("欢迎来到文字冒险游戏！\n")
