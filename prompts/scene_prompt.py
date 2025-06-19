@@ -43,6 +43,16 @@ class ScenePrompt:
 玩家操作：{player_action}
 
 请以如下JSON格式输出（不要输出任何解释性文字，只输出JSON）：
+示例：
+{{
+  "description": "你站在一座古老的石门前，门上刻满了神秘符号，周围弥漫着淡淡的蓝色光芒。",
+  "options": [
+    {{"text": "推开神秘的石门", "event": "open_door"}},
+    {{"text": "仔细观察墙上的符号", "event": "inspect_symbols"}},
+    {{"text": "呼喊同伴寻求帮助", "event": "call_for_help"}}
+  ]
+}}
+格式要求：
 {{
   "description": "（生动描述当前场景）",
   "options": [
@@ -56,6 +66,7 @@ class ScenePrompt:
 - 选项内容要简洁明了，直接描述玩家可执行的动作。
 - 不要输出任何解释性文字或说明，只输出JSON。
 - 请严格输出标准JSON，所有属性名和字符串都必须用双引号。
+- **不要输出括号内容或占位符，必须生成具体、真实的选项。**
 """
             ),
             "battle": PromptTemplate(
@@ -67,6 +78,16 @@ class ScenePrompt:
 玩家操作：{player_action}
 
 请以如下JSON格式输出（不要输出任何解释性文字，只输出JSON）：
+示例：
+{{
+  "description": "你与一只巨大的石像鬼展开激烈的战斗，石像鬼的利爪在空中划出寒光。",
+  "options": [
+    {{"text": "挥剑攻击石像鬼", "event": "damage:20"}},
+    {{"text": "使用治疗药水", "event": "heal:15"}},
+    {{"text": "尝试躲避攻击", "event": "none"}}
+  ]
+}}
+格式要求：
 {{
   "description": "（生动描述当前战斗场景）",
   "options": [
@@ -80,6 +101,7 @@ class ScenePrompt:
 - 选项内容要简洁明了，直接描述玩家可执行的动作。
 - 不要输出任何解释性文字或说明，只输出JSON。
 - 请严格输出标准JSON，所有属性名和字符串都必须用双引号。
+- **不要输出括号内容或占位符，必须生成具体、真实的选项。**
 """
             ),
             "dialogue": PromptTemplate(
@@ -91,6 +113,16 @@ class ScenePrompt:
 玩家操作：{player_action}
 
 请以如下JSON格式输出（不要输出任何解释性文字，只输出JSON）：
+示例：
+{{
+  "description": "神秘的老人微笑着看着你，眼中闪烁着智慧的光芒。",
+  "options": [
+    {{"text": "向老人请教符号的含义", "event": "add_experience:10"}},
+    {{"text": "请求老人帮助解谜", "event": "add_item:线索碎片"}},
+    {{"text": "谨慎地与老人保持距离", "event": "none"}}
+  ]
+}}
+格式要求：
 {{
   "description": "（生动描述当前对话场景）",
   "options": [
@@ -104,6 +136,7 @@ class ScenePrompt:
 - 选项内容要简洁明了，直接描述玩家可执行的动作。
 - 不要输出任何解释性文字或说明，只输出JSON。
 - 请严格输出标准JSON，所有属性名和字符串都必须用双引号。
+- **不要输出括号内容或占位符，必须生成具体、真实的选项。**
 """
             )
         }
