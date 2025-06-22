@@ -31,3 +31,12 @@ game_adventure/
 - models/：存放数据模型，如玩家、剧情状态等
 - requirements.txt：依赖包列表
 - README.md：本说明文件 
+
+
+## 游戏如何启动
+### （1）选择模型
+在config.json中配置ollama本地大模型，录入本地电脑下载的模型，例如"model_name": "unsafe-llama3-14b:latest"
+### （2）运行游戏
+#### 方式一：运行main.py通过命令行获取游戏
+#### 方式二：下载streamlit包， 运行 streamlit run .\app.py 可通过web页面运行该游戏
+
